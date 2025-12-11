@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -e
+echo "Unpack sources..."
+# jeśli masz fermata_src_modified.zip -> unzip
+# unzip -o fermata_src_modified.zip -d fermata_src_modified
+echo "Build with apktool"
+java -jar apktool.jar b fermata_src_modified -o unsigned.apk
+echo "Zipalign (needs Android build-tools zipalign)"
+zipalign -v -p 4 unsigned.apk unsigned-aligned.apk || cp unsigned.apk unsigned-aligned.apk
+echo "Generate debug keystore if missing"
+if [ ! -f debug.keystore ]; then
+  keytool -genkeypair -v -keystore debug.keystore -alias androiddebugkey -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+fi
+echo "Sign APK"
+# if apksigner binary present:
+if command -v apksigner >/dev/null 2>&1; then
+  apksigner sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out AutoTube-1.0.apk unsigned-aligned.apk
+else
+  if [ -f apksigner.jar ]; then
+    java -jar apksigner.jar sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out AutoTube-1.0.apk unsigned-aligned.apk
+  else
+    echo "apksigner not found. Put apksigner.jar in repo or install build-tools."
+    exit 1
+  fi
+fi
+echo "Done. Output: AutoTube-1.0.apk"
